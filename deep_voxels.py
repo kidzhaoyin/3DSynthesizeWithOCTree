@@ -89,9 +89,16 @@ class DeepVoxels(nn.Module):
 
         # The deepvoxels grid is registered as a buffer - meaning, it is safed together with model parameters, but is
         # not trainable.
-        self.register_buffer("deepvoxels",
+        # self.register_buffer("deepvoxels",
+        #                      torch.zeros(
+        #                          (1, self.n_grid_feats, self.grid_dims[0], self.grid_dims[1], self.grid_dims[2])))
+        self.depth = int(np.round(np.log(self.grid_dims[0])/np.log(2)))
+        self.voxel_size = self.grid_dims[0]**3
+        self.voxel_shape = (1, self.n_grid_feats, self.grid_dims[0], self.grid_dims[0], self.grid_dims[0])
+        self.octree_length = int(8*(8**self.depth-1)/7)
+        self.register_buffer("octree",
                              torch.zeros(
-                                 (1, self.n_grid_feats, self.grid_dims[0], self.grid_dims[1], self.grid_dims[2])))
+                                 (1, self.n_grid_feats, self.octree_length)))
 
         self.integration_net = IntegrationNet(self.n_grid_feats,
                                               use_dropout=True,
@@ -126,6 +133,12 @@ class DeepVoxels(nn.Module):
         coord_conv_volume = coord_conv_volume / self.grid_dims[0]
         self.coord_conv_volume = torch.Tensor(coord_conv_volume).float().cuda()[None, :, :, :, :]
 
+    def octree2voxel(self, octree):
+        return octree[:,:,-self.voxel_size:].reshape(self.voxel_shape)
+
+    def voxel2octree(self, dv_new):
+        return torch.cat((torch.zeros((1, self.n_grid_feats, self.octree_length-self.voxel_size)), dv_new.reshape((1,self.n_grid_feats, self.voxel_size))), dim=2)
+
     def forward(self,
                 input_img,
                 proj_frustrum_idcs_list,
@@ -138,8 +151,11 @@ class DeepVoxels(nn.Module):
             img_feats = self.feature_extractor(input_img)
             temp_feat_vol = interpolate_lifting(img_feats, lift_volume_idcs, lift_img_coords, self.grid_dims)
 
-            dv_new = self.integration_net(temp_feat_vol, self.deepvoxels.detach(), writer)
-            self.deepvoxels.data = dv_new
+            # dv_new = self.integration_net(temp_feat_vol, self.deepvoxels.detach(), writer)
+            # self.deepvoxels.data = dv_new
+            dv_old = self.octree2voxel(self.octree.detach())
+            dv_new = self.integration_net(temp_feat_vol, dv_old, writer)
+            self.octree.data = self.voxel2octree(dv_new)
         else:
             # Testing mode: Use the pre-trained deepvoxels volume.
             dv_new = self.deepvoxels
