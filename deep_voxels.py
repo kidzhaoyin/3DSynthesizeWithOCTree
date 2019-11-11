@@ -134,10 +134,29 @@ class DeepVoxels(nn.Module):
         self.coord_conv_volume = torch.Tensor(coord_conv_volume).float().cuda()[None, :, :, :, :]
 
     def octree2voxel(self, octree):
+        for i in range(self.depth-1):
+            start_idx = int(8*(8**i-1)/7)
+            depth_length = 8**(i+1)
+            end_idx = start_idx + depth_length
+            for j in range(depth_length):
+                for f in range(self.n_grid_feats):
+                    idx = j + depth_length
+                    if octree[0,f,idx] < 1e-5:
+                        octree[0,f,idx] = 0
+                        octree[0,f,end_idx+j*8:end_idx+j*8+8] = torch.zeros((1,1,8))
         return octree[:,:,-self.voxel_size:].reshape(self.voxel_shape)
 
     def voxel2octree(self, dv_new):
-        return torch.cat((torch.zeros((1, self.n_grid_feats, self.octree_length-self.voxel_size)), dv_new.reshape((1,self.n_grid_feats, self.voxel_size))), dim=2)
+        octree_new = torch.cat((torch.zeros((1, self.n_grid_feats, self.octree_length-self.voxel_size)), dv_new.reshape((1,self.n_grid_feats, self.voxel_size))), dim=2)
+        for i in range(self.depth-1):
+            depth_idx = self.depth - 2 - i
+            start_idx = int(8*(8**depth_idx-1)/7)
+            depth_length = 8**(depth_idx+1)
+            end_idx = start_idx + depth_length
+            for j in range(depth_length):
+                idx = j + depth_length
+                octree_new[:,:,idx] = torch.mean(octree_new[:,:,end_idx+j*8:end_idx+j*8+8], dim=-1)
+        return octree_new
 
     def forward(self,
                 input_img,
