@@ -4,7 +4,7 @@ class octree:
             self.depth = depth
             self.data = [[0] * 8**_ for _ in range(depth)]
         else:
-            grid_size = cude.shape[-1]
+            grid_size = cube.shape[-1]
             self.depth = np.log2(grid_size)
             self.data = [[0] * 8**_ for _ in range(self.depth)]
             for z in range(self.depth):

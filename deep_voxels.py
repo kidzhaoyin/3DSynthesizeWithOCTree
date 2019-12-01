@@ -173,7 +173,7 @@ class DeepVoxels(nn.Module):
             # dv_new = self.integration_net(temp_feat_vol, self.deepvoxels.detach(), writer)
             # self.deepvoxels.data = dv_new
             dv_old = self.octree2voxel(self.octree.detach())
-            dv_new = self.integration_net(temp_feat_vol, dv_old, writer)
+            dv_new = self.integration_net_octree(temp_feat_vol, dv_old, writer)
             self.octree.data = self.voxel2octree(dv_new)
         else:
             # Testing mode: Use the pre-trained deepvoxels volume.
