@@ -100,9 +100,9 @@ class DeepVoxels(nn.Module):
                              torch.zeros(
                                  (1, self.n_grid_feats, self.octree_length)))
 
-        self.integration_net = IntegrationNet(self.n_grid_feats,
-                                              use_dropout=True,
-                                              coord_conv=True,
+        self.integration_net_octree = IntegrationNetOctree(self.n_grid_feats,
+                                              #use_dropout=True,
+                                              #coord_conv=True,
                                               per_feature=False,
                                               grid_dim=grid_dims[-1])
 

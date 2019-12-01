@@ -83,6 +83,68 @@ class RenderingNet(nn.Module):
     def forward(self, input):
         return self.net(input)
 
+class IntegrationNetOctree(torch.nn.Module):
+    def __init__(self, nf0, per_feature, grid_dim):
+        super().__init__()
+
+        in_channels = nf0
+
+        if per_feature:
+            weights_channels = nf0
+        else:
+            weights_channels = 1
+        self.new_integration_octree = nn.Sequential(
+            nn.ReplicationPad1d(1),
+            nn.Conv1d(in_channels, nf0, kernel_size=3, padding=0, bias=True)
+        )
+        self.old_integration_octree = nn.Sequential(
+            nn.ReplicationPad1d(1),
+            nn.Conv1d(in_channels, nf0, kernel_size=3, padding=0, bias=False)
+        )
+
+        self.update_old_net_octree = nn.Sequential(
+            nn.ReplicationPad1d(1),
+            nn.Conv1d(in_channels, weights_channels, kernel_size=3, padding=0, bias=True)
+        )
+
+        self.update_new_net_octree = nn.Sequential(
+            nn.ReplicationPad1d(1),
+            nn.Conv1d(in_channels, weights_channels, kernel_size=3, padding=0, bias=False)
+        )
+
+        self.reset_old_net = nn.Sequential(
+            nn.ReplicationPad1d(1),
+            nn.Conv1d(in_channels, weights_channels, kernel_size=3, padding=0, bias=True)
+        )
+
+        self.reset_new_net = nn.Sequential(
+            nn.ReplicationPad1d(1),
+            nn.Conv1d(in_channels, weights_channels, kernel_size=3, padding=0, bias=False),
+        )
+        self.sigmoid = nn.Sigmoid()
+
+        self.relu = nn.ReLU()
+
+        coord_conv_volume = np.mgrid[-grid_dim // 2:grid_dim // 2,
+                                     -grid_dim // 2:grid_dim // 2,
+                                     -grid_dim // 2:grid_dim // 2]
+
+        coord_conv_volume = np.stack(coord_conv_volume, axis=0).astype(np.float32)
+        coord_conv_volume = coord_conv_volume / grid_dim
+        self.coord_conv_volume = torch.Tensor(coord_conv_volume).float().cuda()[None, :, :, :, :]
+        self.counter = 0
+
+    def forward(self, new_observation, old_state_octree, writer):
+        old_state_coord = torch.cat([old_state_octree, self.coord_conv_volume], dim=1)
+        new_observation_coord = torch.cat([new_observation, self.coord_conv_volume], dim=1)
+
+        reset = self.sigmoid(self.reset_old_net(old_state_coord) + self.reset_new_net(new_observation_coord))
+        update = self.sigmoid(self.update_old_net(old_state_coord) + self.update_new_net_octree(new_observation_coord))
+        final = self.relu(self.new_integration_octree(new_observation_coord) + self.old_integration_octree(reset * old_state_coord))
+
+        result = ((1 - update) * old_state_octree + update * final)
+        return result
+
 
 class IntegrationNet(torch.nn.Module):
     '''The 3D integration net integrating new observations into the Deepvoxels grid.
