@@ -1,0 +1,5 @@
+/home/deepvoxel/synthetic_scenes/test/armchair/rgb
+/home/deepvoxel/test_log/armchair/test_traj/12_01/21-18-19_19-51-21_all_200.00_l1_weight_2_trgt__armchair_model-epoch_4_iter_2395.pth_armchair
+/home/deepvoxel/test_log/armchair/test_traj/12_02/03-32-12_01-07-48_all_200.00_l1_weight_2_trgt__armchair_model-epoch_8_iter_4311.pth_armchair
+/home/deepvoxel/test_log/armchair/test_traj/12_02/21-05-42_models_model3.pth_armchair
+/home/deepvoxel/test_log/armchair/test_traj/12_02/21-10-08_models_model4.pth_armchair
